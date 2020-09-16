@@ -1,12 +1,25 @@
-const {default: PQueue} = require('p-queue');
-const SQSClient = require('aws-sdk/clients/sqs');
+const { default: PQueue } = require("p-queue");
+const SQSClient = require("aws-sdk/clients/sqs");
 // eslint-disable-next-line no-shadow
-const {pipe, get, values, matches, find, mapValues, isPlainObject, toString} = require('lodash/fp');
-const {default: serverlessLog, logWarning} = require('serverless-offline/dist/serverlessLog');
-const SQSEventDefinition = require('./sqs-event-definition');
-const SQSEvent = require('./sqs-event');
+const {
+  pipe,
+  get,
+  values,
+  matches,
+  find,
+  mapValues,
+  isPlainObject,
+  toString,
+} = require("lodash/fp");
+const {
+  default: serverlessLog,
+  logWarning,
+} = require("serverless-offline/dist/serverlessLog");
+const SQSEventDefinition = require("./sqs-event-definition");
+const SQSEvent = require("./sqs-event");
 
-const delay = timeout => new Promise(resolve => setTimeout(resolve, timeout));
+const delay = (timeout) =>
+  new Promise((resolve) => setTimeout(resolve, timeout));
 
 class SQS {
   constructor(lambda, resources, options) {
@@ -20,11 +33,13 @@ class SQS {
 
     this.client = new SQSClient(this.options);
 
-    this.queue = new PQueue({autoStart: false});
+    this.queue = new PQueue({ autoStart: false });
   }
 
   create(events) {
-    return Promise.all(events.map(({functionKey, sqs}) => this._create(functionKey, sqs)));
+    return Promise.all(
+      events.map(({ functionKey, sqs }) => this._create(functionKey, sqs))
+    );
   }
 
   start() {
@@ -36,7 +51,6 @@ class SQS {
   }
 
   _create(functionKey, rawSqsEventDefinition) {
-
     const sqsEvent = new SQSEventDefinition(
       rawSqsEventDefinition,
       this.options.region,
@@ -48,7 +62,7 @@ class SQS {
 
   async _getQueueUrl(queueName) {
     try {
-      return await this.client.getQueueUrl({QueueName: queueName}).promise();
+      return await this.client.getQueueUrl({ QueueName: queueName }).promise();
     } catch (err) {
       await delay(10000);
       return this._getQueueUrl(queueName);
@@ -56,24 +70,26 @@ class SQS {
   }
 
   async _sqsEvent(functionKey, sqsEvent) {
-    const {enabled, arn, queueName, batchSize} = sqsEvent;
+    const { enabled, arn, queueName, batchSize } = sqsEvent;
 
     if (!enabled) return;
 
     if (this.options.autoCreate) await this._createQueue(sqsEvent);
 
-    const {QueueUrl} = await this.client.getQueueUrl({QueueName: queueName}).promise();
+    const { QueueUrl } = await this.client
+      .getQueueUrl({ QueueName: queueName })
+      .promise();
 
     serverlessLog(`${queueName} | ${QueueUrl}`);
 
     const job = async () => {
-      const {Messages} = await this.client
+      const { Messages } = await this.client
         .receiveMessage({
           QueueUrl,
           MaxNumberOfMessages: batchSize,
-          AttributeNames: ['All'],
-          MessageAttributeNames: ['All'],
-          WaitTimeSeconds: 5
+          AttributeNames: ["All"],
+          MessageAttributeNames: ["All"],
+          WaitTimeSeconds: 5,
         })
         .promise();
 
@@ -88,11 +104,13 @@ class SQS {
 
           await this.client
             .deleteMessageBatch({
-              Entries: (Messages || []).map(({MessageId: Id, ReceiptHandle}) => ({
-                Id,
-                ReceiptHandle
-              })),
-              QueueUrl
+              Entries: (Messages || []).map(
+                ({ MessageId: Id, ReceiptHandle }) => ({
+                  Id,
+                  ReceiptHandle,
+                })
+              ),
+              QueueUrl,
             })
             .promise();
         } catch (err) {
@@ -108,26 +126,30 @@ class SQS {
   _getResourceProperties(queueName) {
     return pipe(
       values,
-      find(matches({Properties: {QueueName: queueName}})),
-      get('Properties')
+      find(matches({ Properties: { QueueName: queueName } })),
+      get("Properties")
     )(this.resources);
   }
 
-  async _createQueue({queueName}, remainingTry = 5) {
+  async _createQueue({ queueName }, remainingTry = 5) {
     const properties = this._getResourceProperties(queueName);
     try {
       await this.client
         .createQueue({
           QueueName: queueName,
           Attributes: mapValues(
-            value => (isPlainObject(value) ? JSON.stringify(value) : toString(value)),
+            (value) =>
+              isPlainObject(value) ? JSON.stringify(value) : toString(value),
             properties
-          )
+          ),
         })
         .promise();
     } catch (err) {
-      if (remainingTry > 0 && err.name === 'AWS.SimpleQueueService.NonExistentQueue'){
-        return this._createQueue({queueName}, remainingTry - 1);
+      if (
+        remainingTry > 0 &&
+        err.name === "AWS.SimpleQueueService.NonExistentQueue"
+      ) {
+        return this._createQueue({ queueName }, remainingTry - 1);
       }
       logWarning(err.stack);
     }

@@ -1,6 +1,3 @@
-const path = require('path');
-const fs = require('fs');
-
 const {
   compact,
   fromPairs,
@@ -12,26 +9,29 @@ const {
   omitBy,
   pick,
   pipe,
-  toPairs
-} = require('lodash/fp');
+  toPairs,
+} = require("lodash/fp");
 
-const debugLog = require('serverless-offline/dist/debugLog').default;
-const {default: serverlessLog, setLog} = require('serverless-offline/dist/serverlessLog');
-const Lambda = require('serverless-offline/dist/lambda').default;
+const debugLog = require("serverless-offline/dist/debugLog").default;
+const {
+  default: serverlessLog,
+  setLog,
+} = require("serverless-offline/dist/serverlessLog");
+const Lambda = require("serverless-offline/dist/lambda").default;
 
-const SQS = require('./sqs');
+const SQS = require("./sqs");
 
-const OFFLINE_OPTION = 'serverless-offline';
-const CUSTOM_OPTION = 'serverless-offline-sqs';
+const OFFLINE_OPTION = "serverless-offline";
+const CUSTOM_OPTION = "serverless-offline-sqs";
 
 const SERVER_SHUTDOWN_TIMEOUT = 5000;
 
 const defaultOptions = {
   batchSize: 100,
-  startingPosition: 'TRIM_HORIZON',
+  startingPosition: "TRIM_HORIZON",
   autoCreate: false,
 
-  accountId: '000000000000'
+  accountId: "000000000000",
 };
 
 const omitUndefined = omitBy(isUndefined);
@@ -51,10 +51,10 @@ class ServerlessOfflineSQS {
     setLog((...args) => serverless.cli.log(...args));
 
     this.hooks = {
-      'offline:start:init': this.start.bind(this),
-      'offline:start:ready': this.ready.bind(this),
-      'offline:start': this._startWithExplicitEnd.bind(this),
-      'offline:start:end': this.end.bind(this)
+      "offline:start:init": this.start.bind(this),
+      "offline:start:ready": this.ready.bind(this),
+      "offline:start": this._startWithExplicitEnd.bind(this),
+      "offline:start:end": this.end.bind(this),
     };
   }
 
@@ -63,7 +63,7 @@ class ServerlessOfflineSQS {
 
     this._mergeOptions();
 
-    const {lambdas} = this._getEvents();
+    const { lambdas } = this._getEvents();
 
     this._createLambda(lambdas);
 
@@ -75,26 +75,28 @@ class ServerlessOfflineSQS {
 
     await Promise.all(eventModules);
 
-    serverlessLog(`Starting Offline SQS: ${this.options.stage}/${this.options.region}.`);
+    serverlessLog(
+      `Starting Offline SQS: ${this.options.stage}/${this.options.region}.`
+    );
   }
 
   async ready() {
-    if (process.env.NODE_ENV !== 'test') {
+    if (process.env.NODE_ENV !== "test") {
       await this._listenForTermination();
     }
   }
 
   // eslint-disable-next-line class-methods-use-this
   async _listenForTermination() {
-    if(this.options.background){
+    if (this.options.background) {
       serverlessLog(`SQS listening in background on ${process.pid}`);
       // Kill when parent (serverless-offline) process exits
-      process.on('SIGINT', this.end)
-      process.on('SIGTERM', this.end);
-    }else{
-      const command = await new Promise(resolve => {
-        process.on('SIGINT', () => resolve('SIGINT'))
-        process.on('SIGTERM', () => resolve('SIGTERM'));
+      process.on("SIGINT", this.end);
+      process.on("SIGTERM", this.end);
+    } else {
+      const command = await new Promise((resolve) => {
+        process.on("SIGINT", () => resolve("SIGINT"));
+        process.on("SIGTERM", () => resolve("SIGTERM"));
       });
 
       serverlessLog(`Got ${command} signal. Offline Halting...`);
@@ -109,11 +111,11 @@ class ServerlessOfflineSQS {
   }
 
   async end(skipExit) {
-    if (process.env.NODE_ENV === 'test' && skipExit === undefined) {
+    if (process.env.NODE_ENV === "test" && skipExit === undefined) {
       return;
     }
 
-    serverlessLog('Halting offline SQS');
+    serverlessLog("Halting offline SQS");
 
     const eventModules = [];
 
@@ -144,7 +146,7 @@ class ServerlessOfflineSQS {
    */
   async _createSqs(skipStart) {
     const resources = this._getResources();
-    
+
     this.sqs = new SQS(this.lambda, resources, this.options);
 
     await this.sqs.create(this.sqsEvents);
@@ -156,7 +158,7 @@ class ServerlessOfflineSQS {
 
   _mergeOptions() {
     const {
-      service: {custom = {}, provider}
+      service: { custom = {}, provider },
     } = this.serverless;
 
     const offlineOptions = custom[OFFLINE_OPTION];
@@ -166,38 +168,42 @@ class ServerlessOfflineSQS {
       {},
       omitUndefined(defaultOptions),
       omitUndefined(provider),
-      omitUndefined(pick('location', offlineOptions)), // serverless-webpack support
+      omitUndefined(pick("location", offlineOptions)), // serverless-webpack support
       omitUndefined(customOptions),
       omitUndefined(this.cliOptions)
     );
 
-    debugLog('options:', this.options);
+    debugLog("options:", this.options);
   }
 
   _makeSqsEvent(functionKey, handler, sqs) {
-    return { functionKey, handler, sqs }
+    return { functionKey, handler, sqs };
   }
 
   _getEvents() {
-    const {service} = this.serverless;
+    const { service } = this.serverless;
 
     const lambdas = [];
     const sqsEvents = [];
 
     const functionKeys = service.getAllFunctions();
 
-    functionKeys.forEach(functionKey => {
+    functionKeys.forEach((functionKey) => {
       const functionDefinition = service.getFunction(functionKey);
 
-      lambdas.push({functionKey, functionDefinition});
+      lambdas.push({ functionKey, functionDefinition });
 
       const events = service.getAllEventsInFunction(functionKey) || [];
 
-      events.forEach(event => {
-        const {sqs} = this._resolveFn(event);
+      events.forEach((event) => {
+        const { sqs } = this._resolveFn(event);
 
         if (sqs && functionDefinition.handler) {
-          const event = this._makeSqsEvent(functionKey, functionDefinition.handler, sqs);
+          const event = this._makeSqsEvent(
+            functionKey,
+            functionDefinition.handler,
+            sqs
+          );
           this.sqsEvents.push(event);
         }
       });
@@ -210,44 +216,59 @@ class ServerlessOfflineSQS {
    * Parse redrive policy queues from resource declarations in order to ensure that
    * queues dependent on dead-letters make their dead-letters existent irrespective of
    * wether the deadletter is declared as a serverless function.
-   * @param {string} resourceName 
+   * @param {string} resourceName
    */
   _parseRedrivePolicy = (resourceName) => {
-    const Resources = get(['service', 'resources', 'Resources'], this.serverless);
-    const redrivePolicy = get([resourceName, 'Properties', 'RedrivePolicy'], Resources, null)
-    if(redrivePolicy){
-      const parsed = this._resolveFn(redrivePolicy)      
-      if(parsed){
-        const event = this._makeSqsEvent(null, null, { arn: parsed.deadLetterTargetArn });
+    const Resources = get(
+      ["service", "resources", "Resources"],
+      this.serverless
+    );
+    const redrivePolicy = get(
+      [resourceName, "Properties", "RedrivePolicy"],
+      Resources,
+      null
+    );
+    if (redrivePolicy) {
+      const parsed = this._resolveFn(redrivePolicy);
+      if (parsed) {
+        const event = this._makeSqsEvent(null, null, {
+          arn: parsed.deadLetterTargetArn,
+        });
         this.sqsEvents.push(event);
       }
     }
-  }
+  };
 
   _resolveFn(obj) {
-    const Resources = get(['service', 'resources', 'Resources'], this.serverless);
+    const Resources = get(
+      ["service", "resources", "Resources"],
+      this.serverless
+    );
 
     return pipe(
       toPairs,
       map(([key, value]) => {
         if (!isPlainObject(value)) return [key, value];
 
-        if (has('Fn::GetAtt', value)) {
-          const [resourceName, attribute] = value['Fn::GetAtt'];
+        if (has("Fn::GetAtt", value)) {
+          const [resourceName, attribute] = value["Fn::GetAtt"];
 
           switch (attribute) {
-            case 'Arn': {
-              const type = get([resourceName, 'Type'], Resources);
+            case "Arn": {
+              const type = get([resourceName, "Type"], Resources);
 
               switch (type) {
-                case 'AWS::SQS::Queue': {  
-                  // Parse redrive depdencies first                
+                case "AWS::SQS::Queue": {
+                  // Parse redrive depdencies first
                   this._parseRedrivePolicy(resourceName);
 
-                  const queueName = get([resourceName, 'Properties', 'QueueName'], Resources);                  
+                  const queueName = get(
+                    [resourceName, "Properties", "QueueName"],
+                    Resources
+                  );
                   return [
                     key,
-                    `arn:aws:kinesis:${this.options.region}:${this.options.accountId}:${queueName}`
+                    `arn:aws:kinesis:${this.options.region}:${this.options.accountId}:${queueName}`,
                   ];
                 }
                 default: {
@@ -268,7 +289,10 @@ class ServerlessOfflineSQS {
   }
 
   _getResources() {
-    const Resources = get(['service', 'resources', 'Resources'], this.serverless);
+    const Resources = get(
+      ["service", "resources", "Resources"],
+      this.serverless
+    );
     return this._resolveFn(Resources);
   }
 }

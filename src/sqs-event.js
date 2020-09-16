@@ -1,4 +1,4 @@
-const {mapValues, mapKeys, lowerFirst} = require('lodash/fp');
+const { mapValues, mapKeys, lowerFirst } = require("lodash/fp");
 
 class SQSEvent {
   constructor(messages, region, arn) {
@@ -9,7 +9,7 @@ class SQSEvent {
         Body: body,
         Attributes: attributes,
         MessageAttributes: messageAttributes,
-        MD5OfBody: md5OfBody
+        MD5OfBody: md5OfBody,
       }) => ({
         messageId,
         receiptHandle,
@@ -17,9 +17,9 @@ class SQSEvent {
         attributes,
         messageAttributes: mapValues(mapKeys(lowerFirst), messageAttributes),
         md5OfBody,
-        eventSource: 'aws:sqs',
+        eventSource: "aws:sqs",
         eventSourceARN: arn,
-        awsRegion: region
+        awsRegion: region,
       })
     );
   }
