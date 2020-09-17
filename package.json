@@ -1,5 +1,5 @@
 {
-  "name": "@hawkit-dev/serverless-offline-sqs",
+  "name": "serverless-offline-sqs",
   "version": "4.1.1",
   "description": "Emulate AWS λ and SQS locally when developing your Serverless project",
   "keywords": [
