@@ -1,5 +1,5 @@
 {
-  "name": "serverless-offline-sqs",
+  "name": "@hawkit-dev/serverless-offline-sqs",
   "version": "4.1.0",
   "description": "Emulate AWS λ and SQS locally when developing your Serverless project",
   "keywords": [
@@ -20,7 +20,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git@github.com:hawkit-dev/serverless-offline-sqs.git"
+    "url": "https://github.com/hawkit-dev/serverless-offline-sqs"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
   },
   "homepage": "https://github.com/hawkit-dev/serverless-offline-sqs",
   "bugs": {
